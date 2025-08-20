@@ -145,6 +145,16 @@ Note: For best results, use Chrome, Edge, or Firefox.
         let currentScreenIndex = 0;
         let screenHistory = []; // To manage back navigation
 
+        // Prompt for Gemini API key and store in window.geminiApiKey
+        if (!window.geminiApiKey) {
+            let storedKey = localStorage.getItem('geminiApiKey');
+            if (!storedKey) {
+                storedKey = prompt('Enter your Gemini API key:');
+                if (storedKey) localStorage.setItem('geminiApiKey', storedKey);
+            }
+            window.geminiApiKey = storedKey;
+        }
+
         const screens = [
             // Screen 0: Splash / Welcome Screen
             {
@@ -490,7 +500,7 @@ Note: For best results, use Chrome, Edge, or Firefox.
                         goalDuration: '1 hour/day'
                     };
                     // Gemini API call for AI-generated content
-                    const apiKey = "AIzaSyDWGx1uB1umKI4aHryKFsDZRjH2FBa1x3Q";
+                    const apiKey = window.geminiApiKey;
                     const prompt = `Generate a personalized lesson introduction for a ${userSelections.learningMode} lesson in ${userSelections.targetLanguage} for a native ${userSelections.nativeLanguage} speaker. Motivation: ${userSelections.motivation}. Recommended practice: ${userSelections.goalDuration}. Make it friendly and motivating.`;
                     let aiIntro = 'Loading your AI-powered lesson intro...';
                     // Async fetch Gemini content
