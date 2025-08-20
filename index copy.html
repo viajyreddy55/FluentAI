@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FluentAI App</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Google Fonts - Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .app-container {
+            width: 100vw;
+            max-width: 430px;
+            height: 100vh;
+            max-height: 100vh;
+            background-color: #fff;
+            border-radius: 2rem;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            transform: scale(1);
+            transition: transform 0.3s ease-in-out;
+        }
+        @media (max-width: 640px) {
+            .app-container {
+                height: 100vh;
+                border-radius: 0;
+                box-shadow: none;
+                max-width: 100vw;
+                width: 100vw;
+                padding: 0;
+            }
+            .scrollable-content {
+                padding: 1rem !important;
+            }
+        }
+        .scrollable-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        .scrollable-content::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .screen-transition {
+            transition: opacity 0.3s ease-in-out;
+        }
+        /* Make buttons larger for touch */
+        button, .nav-item, .mode-card, .practice-category-btn, .practice-type-btn {
+            min-height: 48px;
+            min-width: 44px;
+            font-size: 1.1rem;
+        }
+        /* Larger icons for mobile */
+        i.fas, i.fa {
+            font-size: 1.5em;
+        }
+        /* Increase tap area for radio/checkbox */
+        input[type="radio"], input[type="checkbox"] {
+            width: 1.5em;
+            height: 1.5em;
+        }
+        /* Responsive font sizes */
+        h1, h2, h3, h4 {
+            font-size: clamp(1.2rem, 4vw, 2.5rem);
+        }
+        .rounded-xl, .rounded-2xl, .rounded-full {
+            border-radius: 1.2rem !important;
+        }
+        /* Prevent double-tap zoom */
+        html, body {
+            touch-action: manipulation;
+        }
+    </style>
+</head>
+<body class="selection:bg-indigo-200">
+    <div id="app-container" class="app-container">
+        <!-- Back Button (hidden on splash) -->
+        <button id="back-button" class="absolute top-4 left-4 z-10 p-2 text-gray-600 hover:text-gray-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 rounded-full" style="display: none;">
+            <i class="fas fa-arrow-left text-xl"></i>
+        </button>
+
+        <div id="screen-content" class="flex-grow flex flex-col p-6 overflow-y-auto scrollable-content screen-transition">
+            <!-- Screen content will be rendered here by JavaScript -->
+        </div>
+
+        <!-- Bottom Navigation (for Dashboard screen) -->
+        <div id="bottom-nav" class="hidden w-full bg-white border-t border-gray-200 py-3 px-4 flex justify-around items-center rounded-b-2xl shadow-md">
+            <button class="nav-item flex flex-col items-center text-gray-500 hover:text-indigo-600 transition-colors">
+                <i class="fas fa-home text-xl mb-1"></i>
+                <span class="text-xs font-medium">Home</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-gray-500 hover:text-indigo-600 transition-colors">
+                <i class="fas fa-book-open text-xl mb-1"></i>
+                <span class="text-xs font-medium">Practice</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-gray-500 hover:text-indigo-600 transition-colors">
+                <i class="fas fa-chart-line text-xl mb-1"></i>
+                <span class="text-xs font-medium">Progress</span>
+            </button>
+            <button class="nav-item flex flex-col items-center text-gray-500 hover:text-indigo-600 transition-colors">
+                <i class="fas fa-user text-xl mb-1"></i>
+                <span class="text-xs font-medium">Profile</span>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const screenContent = document.getElementById('screen-content');
+        const bottomNav = document.getElementById('bottom-nav');
+        const backButton = document.getElementById('back-button');
+        let currentScreenIndex = 0;
+        let screenHistory = []; // To manage back navigation
+
+        const screens = [
+            // Screen 0: Splash / Welcome Screen
+            {
+                id: 'splash',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <img src="https://placehold.co/120x120/8b5cf6/ffffff?text=FluentAI" alt="FluentAI Logo" class="mb-6 rounded-full shadow-lg">
+                        <h1 class="text-4xl font-extrabold text-indigo-700 mb-3">FluentAI</h1>
+                        <p class="text-lg text-gray-600 mb-10">Your AI language partner.</p>
+                        <button id="get-started-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Get Started
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'get-started-btn': () => navigateTo(1)
+                },
+                showBack: false,
+                showBottomNav: false
+            },
+            // Screen 2: Language Selection (Learning Goal)
+            {
+                id: 'language-selection',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Which language would you like to learn?</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${['English', 'Spanish', 'French', 'Hindi', 'German', 'Japanese'].map(lang => `
+                                <label class="flex items-center p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <input type="radio" name="learn-language" value="${lang}" class="form-radio h-5 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                    <span class="ml-4 text-lg font-medium text-gray-700">${lang}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <button id="continue-lang-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Continue
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'continue-lang-btn': () => navigateTo(2)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 3: Native Language Selection
+            {
+                id: 'native-language-selection',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Which language would you like to learn with?</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${[
+                                { name: 'English', flag: '🇬🇧' },
+                                { name: 'Spanish', flag: '🇪🇸' },
+                                { name: 'Hindi', flag: '🇮🇳' },
+                                { name: 'Chinese', flag: '🇨🇳' }
+                            ].map(lang => `
+                                <label class="flex items-center p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <input type="radio" name="native-language" value="${lang.name}" class="form-radio h-5 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                    <span class="ml-4 text-lg font-medium text-gray-700">${lang.flag} ${lang.name}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <button id="continue-native-lang-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Continue
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'continue-native-lang-btn': () => navigateTo(3)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 4: Learning Mode Selection
+            {
+                id: 'learning-mode',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">How do you want to learn?</h2>
+                        <div class="flex-grow grid grid-cols-2 gap-4 mb-8">
+                            ${[
+                                { mode: 'Beginner', icon: 'fas fa-seedling' },
+                                { mode: 'Speaking', icon: 'fas fa-microphone-alt' },
+                                { mode: 'Grammar', icon: 'fas fa-spell-check' },
+                                { mode: 'Exam Prep', icon: 'fas fa-graduation-cap' }
+                            ].map(card => `
+                                <div class="mode-card flex flex-col items-center justify-center p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-all text-center">
+                                    <i class="${card.icon} text-4xl text-indigo-500 mb-3"></i>
+                                    <span class="text-lg font-medium text-gray-700">${card.mode}</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                        <button id="continue-mode-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Continue
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'continue-mode-btn': () => navigateTo(4)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 5: Why Learn This Language?
+            {
+                id: 'motivation',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Why do you want to learn this language?</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${['Travel', 'Job', 'Confidence building', 'Academics', 'Cultural interest', 'Family'].map(reason => `
+                                <label class="flex items-center p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <input type="checkbox" name="motivation" value="${reason}" class="form-checkbox h-5 w-5 text-indigo-600 rounded focus:ring-indigo-500">
+                                    <span class="ml-4 text-lg font-medium text-gray-700">${reason}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <button id="continue-motivation-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Continue
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'continue-motivation-btn': () => navigateTo(5)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 6: Learning Goal Duration
+            {
+                id: 'goal-duration',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">How much time can you dedicate weekly?</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${['30 mins/day', '1 hour/day', '2 hours/day', 'Flexible'].map(duration => `
+                                <label class="flex items-center p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <input type="radio" name="goal-duration" value="${duration}" class="form-radio h-5 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                    <span class="ml-4 text-lg font-medium text-gray-700">${duration}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <button id="continue-duration-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Continue
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'continue-duration-btn': () => navigateTo(6)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 7: Loading / Personal Plan Setup
+            {
+                id: 'loading-plan',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500 mb-6"></div>
+                        <p class="text-xl font-medium text-gray-700">Setting up your personalized plan...</p>
+                        <p class="text-md text-gray-500 mt-2">This might take a moment.</p>
+                    </div>
+                `,
+                actions: {}, // No direct action, it auto-advances
+                autoAdvance: true, // Custom property to trigger auto-advance
+                autoAdvanceDelay: 2000, // 2 seconds
+                autoAdvanceTo: 7, // Index of next screen (Subscription Paywall)
+                showBack: false,
+                showBottomNav: false
+            },
+            // Screen 8: Subscription Paywall
+            {
+                id: 'paywall',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Unlock FluentAI Premium</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            <div class="bg-indigo-50 border border-indigo-200 p-6 rounded-xl shadow-md text-center">
+                                <h3 class="text-xl font-bold text-indigo-700 mb-2">Monthly</h3>
+                                <p class="text-3xl font-extrabold text-gray-900 mb-2">$9.99<span class="text-lg font-medium text-gray-600">/month</span></p>
+                                <ul class="text-gray-700 text-sm list-disc list-inside mt-4 text-left">
+                                    <li>Unlimited lessons & practice</li>
+                                    <li>AI-powered tutor mode</li>
+                                    <li>Offline access</li>
+                                </ul>
+                            </div>
+                            <div class="bg-white border border-gray-200 p-6 rounded-xl shadow-md text-center">
+                                <h3 class="text-xl font-bold text-gray-700 mb-2">Yearly (Save 20%)</h3>
+                                <p class="text-3xl font-extrabold text-gray-900 mb-2">$79.99<span class="text-lg font-medium text-gray-600">/year</span></p>
+                                <ul class="text-gray-700 text-sm list-disc list-inside mt-4 text-left">
+                                    <li>All monthly features included</li>
+                                    <li>Personalized progress reports</li>
+                                </ul>
+                            </div>
+                        </div>
+                        <button id="continue-premium-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Continue with Premium
+                        </button>
+                        <button id="skip-premium-btn" class="mt-4 text-indigo-600 font-semibold hover:text-indigo-800 focus:outline-none">
+                            No thanks, continue with Free
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'continue-premium-btn': () => alert('Simulating premium purchase!'), // Could navigate to a confirmation
+                    'skip-premium-btn': () => navigateTo(8) // Go to Dashboard
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 9: Dashboard / Home
+            {
+                id: 'dashboard',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-3xl font-bold text-gray-800">Hello, Learner!</h2>
+                            <div class="w-10 h-10 bg-indigo-200 rounded-full flex items-center justify-center text-indigo-700 font-bold">L</div>
+                        </div>
+                        <div class="bg-gradient-to-br from-indigo-500 to-purple-600 p-6 rounded-2xl shadow-lg text-white mb-6">
+                            <p class="text-lg font-semibold mb-2">Daily Goal: 30 mins</p>
+                            <div class="w-full bg-indigo-400 rounded-full h-2.5">
+                                <div class="bg-white h-2.5 rounded-full" style="width: 70%"></div>
+                            </div>
+                            <p class="text-sm mt-2">21/30 mins completed today</p>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4 flex-grow mb-8">
+                            <button id="topics-btn" class="bg-white p-4 rounded-xl shadow-md flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-shadow focus:outline-none">
+                                <i class="fas fa-book-open text-3xl text-green-500 mb-3"></i>
+                                <span class="text-lg font-medium text-gray-700">Topics</span>
+                            </button>
+                            <button id="exercises-btn" class="bg-white p-4 rounded-xl shadow-md flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-shadow focus:outline-none">
+                                <i class="fas fa-edit text-3xl text-blue-500 mb-3"></i>
+                                <span class="text-lg font-medium text-gray-700">Exercises</span>
+                            </button>
+                            <button id="achievements-btn" class="bg-white p-4 rounded-xl shadow-md flex flex-col items-center justify-center text-center cursor-pointer hover:shadow-lg transition-shadow focus:outline-none">
+                                <i class="fas fa-star text-3xl text-yellow-500 mb-3"></i>
+                                <span class="text-lg font-medium text-gray-700">Achievements</span>
+                            </button>
+                            <button id="start-practice-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold p-4 rounded-xl shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300 flex flex-col items-center justify-center text-center">
+                                <i class="fas fa-play-circle text-3xl mb-2"></i>
+                                <span class="text-lg">Start Practice</span>
+                            </button>
+                        </div>
+                    </div>
+                `,
+                actions: {
+                    'topics-btn': () => navigateTo(screens.findIndex(s => s.id === 'topics')),
+                    'exercises-btn': () => navigateTo(screens.findIndex(s => s.id === 'exercises')),
+                    'achievements-btn': () => navigateTo(screens.findIndex(s => s.id === 'achievements')),
+                    'start-practice-btn': () => navigateTo(9)
+                },
+                showBack: false, // No back button from dashboard
+                showBottomNav: true
+            },
+            // Screen 10: Practice Screen
+            {
+                id: 'practice-categories',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Practice Modules</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${[
+                                { category: 'Vocabulary', icon: 'fas fa-language', color: 'text-purple-600' },
+                                { category: 'Grammar', icon: 'fas fa-quote-right', color: 'text-orange-600' },
+                                { category: 'Pronunciation', icon: 'fas fa-volume-up', color: 'text-red-600' },
+                                { category: 'Listening', icon: 'fas fa-headphones', color: 'text-teal-600' },
+                                { category: 'Writing', icon: 'fas fa-pen-nib', color: 'text-blue-600' }
+                            ].map(item => `
+                                <button class="flex items-center justify-between w-full p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors practice-category-btn">
+                                    <div class="flex items-center">
+                                        <i class="${item.icon} text-2xl ${item.color} mr-4"></i>
+                                        <span class="text-lg font-medium text-gray-700">${item.category}</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-gray-400"></i>
+                                </button>
+                            `).join('')}
+                        </div>
+                        <button id="back-to-dashboard-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-gray-300">
+                            Back to Dashboard
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    // All category buttons will lead to Lesson Intro (Screen 12)
+                    '.practice-category-btn': () => navigateTo(10),
+                    'back-to-dashboard-btn': () => navigateTo(8) // Back to Dashboard
+                },
+                showBack: true,
+                showBottomNav: true
+            },
+            // Screen 11: Motivation Screen (Reusing this for mid-session encouragement)
+            {
+                id: 'mid-session-motivation',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <i class="fas fa-award text-6xl text-yellow-500 mb-6 animate-bounce"></i>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-4">Great choice!</h2>
+                        <p class="text-xl text-gray-600 mb-10">You're improving every day!</p>
+                        <button id="start-practice-now-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Start Practice Now
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'start-practice-now-btn': () => navigateTo(11) // Go to Lesson Intro
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 12: Lesson Intro
+            {
+                id: 'lesson-intro',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <i class="fas fa-microphone-alt text-6xl text-indigo-500 mb-6"></i>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-4">Let's Practice Speaking!</h2>
+                        <p class="text-lg text-gray-600 mb-10">Improve your fluency and confidence.</p>
+                        <button id="start-lesson-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Start Lesson
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'start-lesson-btn': () => navigateTo(12) // Go to Practice Menu
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 13: Success / Achievement Screen
+            {
+                id: 'success-achievement',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <div class="bg-green-100 p-8 rounded-full mb-6">
+                            <i class="fas fa-check-circle text-8xl text-green-500 animate-scale-in"></i>
+                        </div>
+                        <h2 class="text-4xl font-extrabold text-green-700 mb-4">Well done!</h2>
+                        <p class="text-xl text-gray-600 mb-10">You completed the lesson!</p>
+                        <button id="next-lesson-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Next Lesson
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'next-lesson-btn': () => navigateTo(8) // Go back to dashboard
+                },
+                showBack: false, // User should proceed, not go back here
+                showBottomNav: false
+            },
+            // Screen 14: Lesson Navigation (Skipped for brevity, can be integrated into Practice Screen)
+            // Screen 15: Practice Menu
+            {
+                id: 'practice-menu',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Select Practice Type</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${[
+                                { type: 'Tutor Mode', icon: 'fas fa-graduation-cap' },
+                                { type: 'Roleplay Mode', icon: 'fas fa-user-friends' },
+                                { type: 'Listening Mode', icon: 'fas fa-ear' },
+                                { type: 'Writing Mode', icon: 'fas fa-feather-alt' }
+                            ].map(item => `
+                                <button class="flex items-center justify-between w-full p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-indigo-50 hover:border-indigo-300 transition-colors practice-type-btn" data-type="${item.type.toLowerCase().replace(' ', '-')}-btn">
+                                    <div class="flex items-center">
+                                        <i class="${item.icon} text-2xl text-indigo-500 mr-4"></i>
+                                        <span class="text-lg font-medium text-gray-700">${item.type}</span>
+                                    </div>
+                                    <i class="fas fa-chevron-right text-gray-400"></i>
+                                </button>
+                            `).join('')}
+                        </div>
+                        <button id="back-to-practice-categories-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-gray-300">
+                            Back to Practice
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'roleplay-mode-btn': () => navigateTo(14), // Go to Roleplay Setup
+                    'back-to-practice-categories-btn': () => navigateTo(9) // Go back to Practice Categories
+                    // Other modes could navigate to specific screens
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 16: Roleplay Module Intro (Skipped directly to setup)
+            // Screen 17: Roleplay Setup
+            {
+                id: 'roleplay-setup',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Pick a Roleplay Scenario</h2>
+                        <div class="flex-grow space-y-4 mb-8">
+                            ${[
+                                { scenario: 'Restaurant', icon: 'fas fa-utensils' },
+                                { scenario: 'Travel', icon: 'fas fa-plane-departure' },
+                                { scenario: 'Job Interview', icon: 'fas fa-user-tie' },
+                                { scenario: 'Shopping', icon: 'fas fa-shopping-bag' }
+                            ].map(item => `
+                                <label class="flex items-center p-4 border border-gray-200 rounded-xl shadow-sm cursor-pointer hover:bg-gray-50 transition-colors">
+                                    <input type="radio" name="roleplay-scenario" value="${item.scenario}" class="form-radio h-5 w-5 text-indigo-600 border-gray-300 focus:ring-indigo-500">
+                                    <span class="ml-4 text-lg font-medium text-gray-700"><i class="${item.icon} mr-2 text-indigo-500"></i>${item.scenario}</span>
+                                </label>
+                            `).join('')}
+                        </div>
+                        <button id="start-roleplay-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Start Roleplay
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'start-roleplay-btn': () => navigateTo(15) // Go to Roleplay Active
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 18: Roleplay Active
+            {
+                id: 'roleplay-active',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <div class="relative w-32 h-32 mb-8">
+                            <div class="absolute inset-0 rounded-full border-4 border-indigo-500 animate-pulse-slow"></div>
+                            <div class="absolute inset-2 rounded-full border-4 border-indigo-300"></div>
+                            <div class="relative flex items-center justify-center h-full w-full">
+                                <i class="fas fa-microphone text-5xl text-indigo-600"></i>
+                            </div>
+                        </div>
+                        <p class="text-xl font-semibold text-gray-700 mb-4">You're in a restaurant. Start the roleplay!</p>
+                        <p class="text-gray-500 mb-8">Tap the mic to speak.</p>
+                        <div class="flex space-x-4">
+                            <button id="start-speaking-btn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-green-300">
+                                Start Speaking
+                            </button>
+                            <button id="end-roleplay-btn" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-red-300">
+                                End Roleplay
+                            </button>
+                        </div>
+                    </div>
+                `,
+                actions: {
+                    'start-speaking-btn': () => alert('Simulating speaking!'),
+                    'end-roleplay-btn': () => navigateTo(16) // Go to Roleplay Feedback
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 19: Roleplay Feedback
+            {
+                id: 'roleplay-feedback',
+                render: () => `
+                    <div class="flex flex-col h-full items-center text-center">
+                        <i class="fas fa-trophy text-6xl text-yellow-500 mb-6 mt-4"></i>
+                        <h2 class="text-3xl font-bold text-gray-800 mb-4">You did great!</h2>
+                        <p class="text-lg text-gray-600 mb-8">Here's your feedback:</p>
+                        <div class="bg-indigo-50 p-6 rounded-xl shadow-md text-left w-full max-w-sm mb-8">
+                            <p class="font-semibold text-indigo-700 mb-2">Tips:</p>
+                            <ul class="list-disc list-inside text-gray-700 text-sm">
+                                <li>Focus on intonation.</li>
+                                <li>Expand your vocabulary for ordering food.</li>
+                                <li>Great use of polite phrases!</li>
+                            </ul>
+                        </div>
+                        <button id="next-practice-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Next Practice
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'next-practice-btn': () => navigateTo(18) // Go to Progress Tracking
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 20: Progress Tracking
+            {
+                id: 'progress-tracking',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Your Progress</h2>
+                        <div class="flex-grow space-y-6 mb-8">
+                            <div class="bg-white p-6 rounded-xl shadow-md">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-3">Weekly Hours Spent</h3>
+                                <div class="w-full bg-gray-200 rounded-full h-3">
+                                    <div class="bg-indigo-500 h-3 rounded-full" style="width: 65%;"></div>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-2">6.5 / 10 hours</p>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-xl shadow-md flex items-center">
+                                <i class="fas fa-trophy text-4xl text-yellow-500 mr-4"></i>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-800">Your Badges</h3>
+                                    <p class="text-sm text-gray-600">Collected 5/12 badges</p>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-xl shadow-md flex items-center">
+                                <i class="fas fa-fire text-4xl text-orange-500 mr-4"></i>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-gray-800">Learning Streak</h3>
+                                    <p class="text-sm text-gray-600">Day 14 streak! Keep it up!</p>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="back-to-practice-from-progress-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                            Back to Practice
+                        </button>
+                    </div>
+                `,
+                actions: {
+                    'back-to-practice-from-progress-btn': () => navigateTo(9) // Go back to Practice Categories
+                },
+                showBack: true,
+                showBottomNav: true
+            },
+            // Screen 21, 22, 23, 24, 25 skipped for brevity
+            // Screen 26: Final Achievement
+            {
+                id: 'final-achievement',
+                render: () => `
+                    <div class="flex flex-col items-center justify-center h-full text-center">
+                        <div class="bg-indigo-100 p-8 rounded-full mb-6">
+                            <i class="fas fa-star-burst text-8xl text-indigo-500 animate-spin-slow"></i>
+                        </div>
+                        <h2 class="text-4xl font-extrabold text-indigo-700 mb-4">Well Done!</h2>
+                        <p class="text-xl text-gray-600 mb-10">You've completed today's session!</p>
+                        <div class="flex flex-col space-y-4 w-full px-4">
+                            <button id="start-new-lesson-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-8 rounded-full shadow-lg transition-all transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-indigo-300">
+                                Start New Lesson
+                            </button>
+                            <button id="continue-app-btn" class="bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-8 rounded-full shadow-lg transition-all focus:outline-none focus:ring-4 focus:ring-gray-300">
+                                Continue Exploring
+                            </button>
+                        </div>
+                    </div>
+                `,
+                actions: {
+                    'start-new-lesson-btn': () => navigateTo(9), // Back to Practice Categories
+                    'continue-app-btn': () => navigateTo(8) // Back to Dashboard
+                },
+                showBack: false,
+                showBottomNav: false
+            },
+            // Screen 27: Topics Page
+            // Screen 27: Topics Page
+            {
+                id: 'topics',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Topics</h2>
+                        <ul class="space-y-4">
+                            <li class="bg-white p-4 rounded-xl shadow-md">Greetings & Introductions</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Food & Dining</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Travel & Directions</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Shopping</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Work & Business</li>
+                        </ul>
+                        <button id="back-to-dashboard-from-topics" class="mt-8 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg focus:outline-none">Back to Dashboard</button>
+                    </div>
+                `,
+                actions: {
+                    'back-to-dashboard-from-topics': () => navigateTo(8)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 28: Exercises Page
+            {
+                id: 'exercises',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Exercises</h2>
+                        <ul class="space-y-4">
+                            <li class="bg-white p-4 rounded-xl shadow-md">Fill in the blanks</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Multiple Choice</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Speaking Practice</li>
+                            <li class="bg-white p-4 rounded-xl shadow-md">Listening Comprehension</li>
+                        </ul>
+                        <button id="back-to-dashboard-from-exercises" class="mt-8 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg focus:outline-none">Back to Dashboard</button>
+                    </div>
+                `,
+                actions: {
+                    'back-to-dashboard-from-exercises': () => navigateTo(8)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 29: Achievements Page
+            {
+                id: 'achievements',
+                render: () => `
+                    <div class="flex flex-col h-full items-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Achievements</h2>
+                        <div class="grid grid-cols-2 gap-4 mb-8">
+                            <div class="bg-yellow-100 p-4 rounded-xl shadow-md flex flex-col items-center">
+                                <i class="fas fa-star text-3xl text-yellow-500 mb-2"></i>
+                                <span class="font-medium">Starter Badge</span>
+                            </div>
+                            <div class="bg-green-100 p-4 rounded-xl shadow-md flex flex-col items-center">
+                                <i class="fas fa-trophy text-3xl text-green-500 mb-2"></i>
+                                <span class="font-medium">Consistency</span>
+                            </div>
+                            <div class="bg-blue-100 p-4 rounded-xl shadow-md flex flex-col items-center">
+                                <i class="fas fa-fire text-3xl text-blue-500 mb-2"></i>
+                                <span class="font-medium">Streak</span>
+                            </div>
+                            <div class="bg-purple-100 p-4 rounded-xl shadow-md flex flex-col items-center">
+                                <i class="fas fa-award text-3xl text-purple-500 mb-2"></i>
+                                <span class="font-medium">Quiz Master</span>
+                            </div>
+                        </div>
+                        <button id="back-to-dashboard-from-achievements" class="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg focus:outline-none">Back to Dashboard</button>
+                    </div>
+                `,
+                actions: {
+                    'back-to-dashboard-from-achievements': () => navigateTo(8)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 30: Progress Page
+            {
+                id: 'progress',
+                render: () => `
+                    <div class="flex flex-col h-full">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Progress</h2>
+                        <div class="bg-white p-6 rounded-xl shadow-md mb-6">
+                            <h3 class="text-lg font-semibold text-gray-800 mb-3">Weekly Hours Spent</h3>
+                            <div class="w-full bg-gray-200 rounded-full h-3">
+                                <div class="bg-indigo-500 h-3 rounded-full" style="width: 65%;"></div>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2">6.5 / 10 hours</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md flex items-center mb-6">
+                            <i class="fas fa-trophy text-4xl text-yellow-500 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800">Your Badges</h3>
+                                <p class="text-sm text-gray-600">Collected 5/12 badges</p>
+                            </div>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md flex items-center mb-6">
+                            <i class="fas fa-fire text-4xl text-orange-500 mr-4"></i>
+                            <div>
+                                <h3 class="text-lg font-semibold text-gray-800">Learning Streak</h3>
+                                <p class="text-sm text-gray-600">Day 14 streak! Keep it up!</p>
+                            </div>
+                        </div>
+                        <button id="back-to-dashboard-from-progress" class="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg focus:outline-none">Back to Dashboard</button>
+                    </div>
+                `,
+                actions: {
+                    'back-to-dashboard-from-progress': () => navigateTo(8)
+                },
+                showBack: true,
+                showBottomNav: false
+            },
+            // Screen 31: Profile Page
+            {
+                id: 'profile',
+                render: () => `
+                    <div class="flex flex-col h-full items-center">
+                        <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center mt-4">Profile</h2>
+                        <div class="bg-indigo-100 p-6 rounded-full mb-4">
+                            <i class="fas fa-user text-5xl text-indigo-700"></i>
+                        </div>
+                        <div class="bg-white p-6 rounded-xl shadow-md w-full max-w-xs mb-4">
+                            <p class="font-semibold text-gray-700 mb-2">Name: Learner</p>
+                            <p class="font-semibold text-gray-700 mb-2">Language: English</p>
+                            <p class="font-semibold text-gray-700 mb-2">Goal: 30 mins/day</p>
+                        </div>
+                        <button id="back-to-dashboard-from-profile" class="mt-4 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-3 px-6 rounded-full shadow-lg focus:outline-none">Back to Dashboard</button>
+                    </div>
+                `,
+                actions: {
+                    'back-to-dashboard-from-profile': () => navigateTo(8)
+                },
+                showBack: true,
+                showBottomNav: false
+            }
+        ];
+
+        function renderScreen(index) {
+            // Store current screen in history if not navigating back
+            if (index !== currentScreenIndex && !screenHistory.includes(currentScreenIndex)) {
+                screenHistory.push(currentScreenIndex);
+            }
+            currentScreenIndex = index;
+            const screen = screens[currentScreenIndex];
+
+            // Apply fade out effect
+            screenContent.style.opacity = '0';
+
+            setTimeout(() => {
+                screenContent.innerHTML = screen.render();
+                screenContent.style.opacity = '1'; // Apply fade in effect
+
+                // Attach event listeners
+                for (const selector in screen.actions) {
+                    let elements = [];
+                    // If selector starts with '.', select by class; if starts with '#', select by id; else try both
+                    if (selector.startsWith('.')) {
+                        elements = document.querySelectorAll(selector);
+                    } else if (selector.startsWith('#')) {
+                        elements = document.querySelectorAll(selector);
+                    } else {
+                        // Try id and class
+                        elements = [
+                            ...document.querySelectorAll(`#${selector}`),
+                            ...document.querySelectorAll(`.${selector}`)
+                        ];
+                    }
+                    elements.forEach(element => {
+                        if (element) {
+                            element.onclick = screen.actions[selector];
+                            element.ontouchstart = screen.actions[selector]; // For mobile touch
+                        }
+                    });
+                }
+
+                // Handle bottom navigation visibility
+                if (screen.showBottomNav) {
+                    bottomNav.classList.remove('hidden');
+                    // Attach bottom nav actions
+                    const navButtons = bottomNav.querySelectorAll('.nav-item');
+                    if (navButtons.length === 4) {
+                        navButtons[0].onclick = () => navigateTo(8); // Home
+                        navButtons[1].onclick = () => navigateTo(9); // Practice
+                        navButtons[2].onclick = () => navigateTo(screens.findIndex(s => s.id === 'progress'));
+                        navButtons[3].onclick = () => navigateTo(screens.findIndex(s => s.id === 'profile'));
+                        navButtons[0].ontouchstart = () => navigateTo(8);
+                        navButtons[1].ontouchstart = () => navigateTo(9);
+                        navButtons[2].ontouchstart = () => navigateTo(screens.findIndex(s => s.id === 'progress'));
+                        navButtons[3].ontouchstart = () => navigateTo(screens.findIndex(s => s.id === 'profile'));
+                    }
+                } else {
+                    bottomNav.classList.add('hidden');
+                }
+
+                // Handle back button visibility
+                if (screen.showBack && screenHistory.length > 0) {
+                    backButton.style.display = 'block';
+                } else {
+                    backButton.style.display = 'none';
+                }
+
+                // Handle auto-advance for loading screens
+                if (screen.autoAdvance) {
+                    setTimeout(() => {
+                        navigateTo(screen.autoAdvanceTo);
+                    }, screen.autoAdvanceDelay);
+                }
+            }, 300); // Wait for fade out to complete before changing content
+        }
+
+        function navigateTo(index) {
+            // Prevent navigating beyond available screens
+            if (index >= 0 && index < screens.length) {
+                renderScreen(index);
+            }
+        }
+
+        function goBack() {
+            if (screenHistory.length > 0) {
+                const prevIndex = screenHistory.pop();
+                // Temporarily disable adding to history to avoid loops
+                const tempCurrentScreenIndex = currentScreenIndex;
+                currentScreenIndex = -1; // Indicate a back navigation is in progress
+                renderScreen(prevIndex);
+                currentScreenIndex = tempCurrentScreenIndex; // Reset for future forward navigation
+            }
+        }
+
+        backButton.onclick = goBack;
+
+        // Initial render
+        window.onload = () => renderScreen(0);
+
+    </script>
+</body>
+</html>
